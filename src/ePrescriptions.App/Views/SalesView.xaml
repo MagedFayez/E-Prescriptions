@@ -269,12 +269,13 @@
                                 <TextBox x:Name="SearchInputBox"
                                          Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" 
                                          Style="{StaticResource AppTextBox}" 
-                                         FontSize="15" Padding="36,8,12,8">
+                                         FontSize="13" Padding="32,6,10,6"
+                                         KeyDown="SearchInputBox_KeyDown">
                                     <TextBox.InputBindings>
                                         <KeyBinding Key="Return" Command="{Binding BarcodeEnterCommand}" />
                                     </TextBox.InputBindings>
                                 </TextBox>
-                                <Path Data="{StaticResource IconSearch}" Fill="#94A3B8" Width="18" Height="18" 
+                                <Path Data="{StaticResource IconSearch}" Fill="#94A3B8" Width="16" Height="16" 
                                       Stretch="Uniform" HorizontalAlignment="Right" Margin="0,0,10,0" VerticalAlignment="Center" IsHitTestVisible="False" />
                             </Grid>
 

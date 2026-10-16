@@ -7,8 +7,9 @@
         xmlns:views="clr-namespace:ePrescriptions.App.Views"
         mc:Ignorable="d"
         Title="{Binding WindowTitle}"
-        Height="780" Width="1240"
-        MinHeight="540" MinWidth="850"
+        Icon="pack://application:,,,/Resources/app.ico"
+        Height="720" Width="1160"
+        MinHeight="520" MinWidth="850"
         WindowState="Normal"
         ResizeMode="CanResize"
         WindowStyle="SingleBorderWindow"
@@ -84,48 +85,17 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <!-- الشريط العلوي الخاص بالنافذة المنفصلة -->
-            <RowDefinition Height="50" />
-            <!-- المحتوى الكامل للشاشة -->
+            <!-- المحتوى الكامل للشاشة ممتد بكامل المساحة -->
             <RowDefinition Height="*" />
             <!-- الفوتر الثابت -->
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 1) شريط العنوان والهوية للنافذة المستقلة -->
-        <Border Grid.Row="0" Background="{StaticResource HeaderGradient}" BorderBrush="{StaticResource BrandStripeGradient}" BorderThickness="0,0,0,3" Padding="16,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+        <!-- 1) منطقة عرض الشاشة (مساحة كاملة ومريحة) -->
+        <ContentControl Grid.Row="0" Content="{Binding CurrentViewModel}" Margin="4" />
 
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="White" CornerRadius="8" Width="32" Height="32" Margin="0,0,10,0">
-                        <Path Data="{StaticResource IconSales}" Fill="#0083CB" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{Binding WindowTitle}" Foreground="White" FontWeight="Bold" FontSize="14" />
-                        <TextBlock Text="نافذة مستقلة تدعم الشاشات المتعددة (Multi-Monitor)" Foreground="#DCF1FB" FontSize="10" />
-                    </StackPanel>
-                </StackPanel>
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="#26FFFFFF" CornerRadius="6" Padding="10,5" Margin="0,0,8,0">
-                        <TextBlock Text="e_prescriptions" Foreground="White" FontWeight="Bold" FontSize="11" />
-                    </Border>
-                    <Button Click="CloseButton_Click" Background="#FFE4EE" BorderThickness="0" Cursor="Hand" Padding="12,5">
-                        <TextBlock Text="إغلاق النافذة" Foreground="#A2165F" FontSize="11" FontWeight="SemiBold" />
-                    </Button>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- 2) منطقة عرض الشاشة -->
-        <ContentControl Grid.Row="1" Content="{Binding CurrentViewModel}" Margin="6" />
-
-        <!-- 3) الفوتر -->
-        <Border Grid.Row="2" Background="White" BorderBrush="#D5E4EE" BorderThickness="0,1,0,0" Padding="8,4">
+        <!-- 2) الفوتر -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#D5E4EE" BorderThickness="0,1,0,0" Padding="8,4">
             <TextBlock Text="E-Prescriptions by Maged Fayez | (C) all rights reserved" FlowDirection="LeftToRight"
                        Foreground="#5B7389" FontSize="11" HorizontalAlignment="Center" />
         </Border>

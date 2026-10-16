@@ -163,6 +163,54 @@ namespace ePrescriptions.App.ViewModels
         public ObservableCollection<PurchaseItemRow> CartItems { get; } = new();
         public ObservableCollection<Supplier> SuppliersList { get; } = new();
         public ObservableCollection<PurchaseInvoice> InvoicesHistory { get; } = new();
+        public ObservableCollection<Item> AvailableItems { get; } = new();
+        public ObservableCollection<Item> SearchResults { get; } = new();
+
+        // إدخال وبحث الأصناف في فاتورة المشتريات
+        private string _itemSearchQuery = string.Empty;
+        public string ItemSearchQuery
+        {
+            get => _itemSearchQuery;
+            set
+            {
+                if (SetProperty(ref _itemSearchQuery, value))
+                {
+                    if (TryAutoBarcode(value)) return;
+                    PerformItemSearch(value);
+                }
+            }
+        }
+
+        private Item? _selectedItem;
+        public Item? SelectedItem
+        {
+            get => _selectedItem;
+            set
+            {
+                if (SetProperty(ref _selectedItem, value))
+                {
+                    OnSelectedItemChanged(value);
+                }
+            }
+        }
+
+        private UnitLevel _inputUnitLevel = UnitLevel.Box;
+        public UnitLevel InputUnitLevel { get => _inputUnitLevel; set => SetProperty(ref _inputUnitLevel, value); }
+
+        private int _inputQuantity = 1;
+        public int InputQuantity { get => _inputQuantity; set => SetProperty(ref _inputQuantity, value < 1 ? 1 : value); }
+
+        private decimal _inputCostPounds;
+        public decimal InputCostPounds { get => _inputCostPounds; set => SetProperty(ref _inputCostPounds, value); }
+
+        private string _inputBatchNumber = string.Empty;
+        public string InputBatchNumber { get => _inputBatchNumber; set => SetProperty(ref _inputBatchNumber, value); }
+
+        private DateTime _inputExpiryDate = DateTime.Today.AddYears(2);
+        public DateTime InputExpiryDate { get => _inputExpiryDate; set => SetProperty(ref _inputExpiryDate, value); }
+
+        private int _inputVatPercent = 14;
+        public int InputVatPercent { get => _inputVatPercent; set => SetProperty(ref _inputVatPercent, value); }
 
         // بيانات إضافة مورد جديد
         private string _newSupplierName = string.Empty;
@@ -207,6 +255,8 @@ namespace ePrescriptions.App.ViewModels
         public IRelayCommand NewInvoiceCommand { get; }
         public IRelayCommand SaveInvoiceCommand { get; }
         public IRelayCommand<PurchaseItemRow> RemoveCartItemCommand { get; }
+        public IRelayCommand AddItemToCartCommand { get; }
+        public IRelayCommand BarcodeEnterCommand { get; }
         public IRelayCommand AddSupplierCommand { get; }
         public IRelayCommand PaySupplierVoucherCommand { get; }
 
@@ -240,6 +290,8 @@ namespace ePrescriptions.App.ViewModels
             RefreshCommand = new RelayCommand(LoadData);
             NewInvoiceCommand = new RelayCommand(StartNewInvoice);
             SaveInvoiceCommand = new RelayCommand(SaveInvoice);
+            AddItemToCartCommand = new RelayCommand(AddItemFromInput);
+            BarcodeEnterCommand = new RelayCommand(HandleBarcodeEnter);
             RemoveCartItemCommand = new RelayCommand<PurchaseItemRow>(row =>
             {
                 if (row != null && CartItems.Contains(row))
@@ -265,6 +317,17 @@ namespace ePrescriptions.App.ViewModels
             var history = _purchaseRepository.GetAllPurchases(50);
             foreach (var inv in history) InvoicesHistory.Add(inv);
 
+            AvailableItems.Clear();
+            try
+            {
+                var allItems = _itemRepository.GetAllItems();
+                foreach (var itm in allItems) AvailableItems.Add(itm);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException(ex, "PurchasesViewModel.LoadData.Items");
+            }
+
             StatusMessage = "تم تحديث بيانات المشتريات والموردين.";
         }
 
@@ -275,14 +338,125 @@ namespace ePrescriptions.App.ViewModels
             CartItems.Clear();
             PaidRiyals = 0;
             InvoiceNotes = string.Empty;
+            ItemSearchQuery = string.Empty;
+            SearchResults.Clear();
+            SelectedItem = null;
+            InputBatchNumber = $"BN-{DbDate.Compact(DateTime.Now)}";
+            InputExpiryDate = DateTime.Today.AddYears(2);
+            InputQuantity = 1;
+            InputCostPounds = 0;
+            InputVatPercent = GetDefaultVat();
 
-            // إضافة عينة صنفين للبدء
-            var items = _itemRepository.GetAllItems();
-            if (items.Count > 0)
-            {
-                AddItemToCart(items[0]);
-            }
             RecalculateTotals();
+        }
+
+        private void OnSelectedItemChanged(Item? item)
+        {
+            if (item == null) return;
+            InputCostPounds = Money.FromPiastres(item.CostPriceBoxPiastres).ToPounds();
+            InputBatchNumber = $"BN-{DbDate.Compact(DateTime.Now)}";
+            InputExpiryDate = DateTime.Today.AddYears(2);
+            InputVatPercent = item.GetEffectiveVatRate(GetDefaultVat());
+            InputQuantity = 1;
+            InputUnitLevel = UnitLevel.Box;
+        }
+
+        private void PerformItemSearch(string query)
+        {
+            SearchResults.Clear();
+            if (string.IsNullOrWhiteSpace(query) || query.Length < 2) return;
+
+            try
+            {
+                var list = _itemRepository.Search(query, 12);
+                foreach (var itm in list) SearchResults.Add(itm);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException(ex, "PurchasesViewModel.PerformItemSearch");
+            }
+        }
+
+        public void AddItemFromInput()
+        {
+            Item? targetItem = SelectedItem;
+            if (targetItem == null && !string.IsNullOrWhiteSpace(ItemSearchQuery))
+            {
+                string code = ItemSearchQuery.Trim();
+                targetItem = _itemRepository.GetByBarcodeOrCode(code);
+                if (targetItem == null)
+                {
+                    var search = _itemRepository.Search(code, 1);
+                    if (search.Count > 0) targetItem = search[0];
+                }
+            }
+
+            if (targetItem == null)
+            {
+                StatusMessage = "يرجى اختيار الصنف أو مسح باركوده أولاً!";
+                return;
+            }
+
+            decimal cost = InputCostPounds > 0 ? InputCostPounds : Money.FromPiastres(targetItem.CostPriceBoxPiastres).ToPounds();
+            string batch = string.IsNullOrWhiteSpace(InputBatchNumber) ? $"BN-{DbDate.Compact(DateTime.Now)}" : InputBatchNumber.Trim();
+            int vat = InputVatPercent >= 0 ? InputVatPercent : targetItem.GetEffectiveVatRate(GetDefaultVat());
+
+            var row = new PurchaseItemRow(targetItem, vat)
+            {
+                UnitLevel = InputUnitLevel,
+                QuantityPurchased = Math.Max(1, InputQuantity),
+                UnitCostRiyals = cost,
+                BatchNumber = batch,
+                ExpiryDate = InputExpiryDate,
+                VatPercent = vat
+            };
+            row.Recalculate();
+            row.PropertyChanged += (s, e) => RecalculateTotals();
+
+            CartItems.Add(row);
+            RecalculateTotals();
+
+            StatusMessage = $"تمت إضافة الصنف '{targetItem.NameAr}' إلى فاتورة الشراء.";
+            ItemSearchQuery = string.Empty;
+            SearchResults.Clear();
+            SelectedItem = null;
+            InputBatchNumber = $"BN-{DbDate.Compact(DateTime.Now)}";
+            InputQuantity = 1;
+        }
+
+        public void HandleBarcodeEnter()
+        {
+            string code = ItemSearchQuery.Trim();
+            if (string.IsNullOrEmpty(code)) return;
+
+            var itm = _itemRepository.GetByBarcodeOrCode(code);
+            if (itm != null)
+            {
+                SelectedItem = itm;
+                AddItemFromInput();
+            }
+            else
+            {
+                StatusMessage = $"لم يتم العثور على صنف بالباركود: {code}";
+            }
+        }
+
+        private bool TryAutoBarcode(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            string code = text.Trim();
+            if (code.Length >= 5)
+            {
+                var item = _itemRepository.GetByBarcodeOrCode(code);
+                if (item != null && (string.Equals(item.Barcode?.Trim(), code, StringComparison.OrdinalIgnoreCase) ||
+                                     string.Equals(item.Code?.Trim(), code, StringComparison.OrdinalIgnoreCase)))
+                {
+                    SelectedItem = item;
+                    AddItemFromInput();
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>نسبة الضريبة الافتراضية للصيدلية من الإعدادات (14 لو الإعدادات مش متاحة)</summary>

@@ -29,5 +29,22 @@ namespace ePrescriptions.App.Views
                 vm.ApproverPassword = box.Password;
             }
         }
+
+        private void SearchInputBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Return || e.Key == System.Windows.Input.Key.Enter || e.Key == System.Windows.Input.Key.Tab)
+            {
+                if (DataContext is ViewModels.SalesViewModel vm)
+                {
+                    vm.HandleBarcodeEnter();
+                    e.Handled = true;
+                    if (sender is TextBox tb)
+                    {
+                        tb.Focus();
+                        tb.SelectAll();
+                    }
+                }
+            }
+        }
     }
 }

@@ -42,6 +42,11 @@ namespace ePrescriptions.App.Services
             var vm = _serviceProvider.GetRequiredService<TViewModel>();
             string title = GetDefaultTitleForViewModel(vm);
             var window = new StandaloneWindow(vm, title);
+            if (Application.Current?.MainWindow != null && Application.Current.MainWindow.IsVisible)
+            {
+                window.Owner = Application.Current.MainWindow;
+                window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
             _openWindows[type] = window;
 
             window.Closed += (s, e) =>
@@ -69,6 +74,11 @@ namespace ePrescriptions.App.Services
 
             string winTitle = title ?? GetDefaultTitleForViewModel(viewModel);
             var window = new StandaloneWindow(viewModel, winTitle);
+            if (Application.Current?.MainWindow != null && Application.Current.MainWindow.IsVisible)
+            {
+                window.Owner = Application.Current.MainWindow;
+                window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
             _openWindows[type] = window;
 
             window.Closed += (s, e) =>

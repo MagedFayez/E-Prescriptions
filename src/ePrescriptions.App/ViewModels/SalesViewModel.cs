@@ -511,9 +511,51 @@ namespace ePrescriptions.App.ViewModels
             {
                 if (SetProperty(ref _searchQuery, value))
                 {
+                    if (TryAutoBarcode(value))
+                    {
+                        return;
+                    }
                     PerformSearch(value);
                 }
             }
+        }
+
+        private bool TryAutoBarcode(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text) || IsReturnMode) return false;
+            string code = text.Trim();
+
+            // 1) كود ملصق تشغيلة يبدأ بـ EPRX-
+            if (BatchLabelCode.TryDecode(code, out int batchId))
+            {
+                var found = _itemRepository.GetBatchWithItem(batchId);
+                if (found != null)
+                {
+                    AddItemFromBatchLabel(found.Value.Item, found.Value.Batch);
+                    _searchQuery = string.Empty;
+                    OnPropertyChanged(nameof(SearchQuery));
+                    SearchResults.Clear();
+                    return true;
+                }
+            }
+
+            // 2) مسح الباركود بجهاز الباركود تلقائياً بدون الحاجة للضغط على Enter:
+            // أجهزة الباركود تدخل أرقام الباركود (EAN-8, UPC-12, EAN-13, ITF-14 أو باركود الصنف)
+            if (code.Length >= 5)
+            {
+                var item = _itemRepository.GetByBarcodeOrCode(code);
+                if (item != null && (string.Equals(item.Barcode?.Trim(), code, StringComparison.OrdinalIgnoreCase) ||
+                                     string.Equals(item.Code?.Trim(), code, StringComparison.OrdinalIgnoreCase)))
+                {
+                    AddItem(item);
+                    _searchQuery = string.Empty;
+                    OnPropertyChanged(nameof(SearchQuery));
+                    SearchResults.Clear();
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public ObservableCollection<Item> SearchResults { get; } = new();
